@@ -75,6 +75,19 @@ public class DoctorController {
         }
     }
 
+    @DeleteMapping("/patients/{patientId}")
+    public ResponseEntity<?> deletePatient(@PathVariable Long patientId) {
+        try {
+            Patient patient = patientRepository.findById(patientId)
+                    .orElseThrow(() -> new RuntimeException("Patient not found"));
+            patientRepository.delete(patient);
+            return ResponseEntity.ok(Map.of("message", "Patient deleted successfully"));
+        } catch (Exception e) {
+            System.err.println("[DeletePatient] Error: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Failed to delete patient"));
+        }
+    }
+
     @PutMapping("/patients/{patientId}")
     public ResponseEntity<?> updatePatient(@PathVariable Long patientId, @RequestBody Map<String, Object> updates) {
         try {
