@@ -56,11 +56,12 @@ const AdminDashboard = () => {
             toast.success('Doctor successfully onboarded!');
             // Show newly created doctor credentials immediately
             setSelectedDoctor(res.data);
+            // ✅ Immediately add to list — no re-fetch needed
+            setDoctors(prev => [...prev, res.data]);
             setFormData({ 
                 name: '', email: '', phone: '', 
                 specialization: availableTreatments.length > 0 ? availableTreatments[0] : '' 
             });
-            fetchDoctors();
         } catch (error) {
             console.error("Failed to add doctor", error);
             toast.error('Failed to create Doctor account');

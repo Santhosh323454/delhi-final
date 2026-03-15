@@ -20,8 +20,25 @@ public class AdminController {
     private final AdminService adminService;
 
     @PostMapping("/doctors")
-    public ResponseEntity<Doctor> addDoctor(@RequestBody DoctorSignupRequest request) {
-        return ResponseEntity.ok(adminService.addDoctor(request));
+    public ResponseEntity<DoctorListResponse> addDoctor(@RequestBody DoctorSignupRequest request) {
+        Doctor doc = adminService.addDoctor(request);
+        DoctorListResponse.UserInfo userInfo = null;
+        if (doc.getUser() != null) {
+            userInfo = DoctorListResponse.UserInfo.builder()
+                    .id(doc.getUser().getId())
+                    .name(doc.getUser().getName())
+                    .username(doc.getUser().getUsername())
+                    .email(doc.getUser().getEmail())
+                    .phone(doc.getUser().getPhone())
+                    .plainPassword(doc.getUser().getPlainPassword())
+                    .build();
+        }
+        DoctorListResponse response = DoctorListResponse.builder()
+                .id(doc.getId())
+                .specialization(doc.getSpecialization())
+                .user(userInfo)
+                .build();
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/doctors")
