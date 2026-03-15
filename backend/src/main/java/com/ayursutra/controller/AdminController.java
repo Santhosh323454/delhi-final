@@ -47,22 +47,33 @@ public class AdminController {
         List<Doctor> doctors = adminService.getAllDoctors();
         List<DoctorListResponse> response = doctors.stream().map(doc -> {
             DoctorListResponse.UserInfo userInfo = null;
-            if (doc.getUser() != null) {
-                userInfo = DoctorListResponse.UserInfo.builder()
-                        .id(doc.getUser().getId())
-                        .name(doc.getUser().getName())
-                        .username(doc.getUser().getUsername())
-                        .email(doc.getUser().getEmail())
-                        .phone(doc.getUser().getPhone())
-                        .plainPassword(doc.getUser().getPlainPassword())
-                        .build();
+            try {
+                if (doc.getUser() != null) {
+                    userInfo = DoctorListResponse.UserInfo.builder()
+                            .id(doc.getUser().getId())
+                            .name(doc.getUser().getName())
+                            .username(doc.getUser().getUsername())
+                            .email(doc.getUser().getEmail())
+                            .phone(doc.getUser().getPhone())
+                            .plainPassword(doc.getUser().getPlainPassword())
+                            .build();
+                }
+            } catch (jakarta.persistence.EntityNotFoundException | org.hibernate.ObjectNotFoundException e) {
+                System.out.println("Orphaned doctor skipped, user missing in DB for doctor ID: " + doc.getId());
+            } catch (Exception e) {
+                System.out.println("Error mapping doctor to user: " + e.getMessage());
             }
+
+            if (userInfo == null) {
+                return null; // Don't return orphaned doctors
+            }
+
             return DoctorListResponse.builder()
                     .id(doc.getId())
                     .specialization(doc.getSpecialization())
                     .user(userInfo)
                     .build();
-        }).collect(Collectors.toList());
+        }).filter(java.util.Objects::nonNull).collect(Collectors.toList());
         return ResponseEntity.ok(response);
     }
 
