@@ -10,6 +10,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/protocols")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 public class ProtocolController {
 
     private final AdminService adminService;

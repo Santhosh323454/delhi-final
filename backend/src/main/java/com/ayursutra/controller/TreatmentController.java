@@ -19,6 +19,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/treatments")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*")
 public class TreatmentController {
 
     private final TreatmentRecordRepository treatmentRecordRepository;
