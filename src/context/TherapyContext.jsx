@@ -2,12 +2,41 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const TherapyContext = createContext();
 
+// Simple JWT parser for token recovery
+const parseJwt = (token) => {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(jsonPayload);
+    } catch (e) {
+        return null;
+    }
+};
+
 export const TherapyProvider = ({ children }) => {
     // Persistent User State
     const [user, setUser] = useState(() => {
         const savedUser = localStorage.getItem('ayur_user');
         return savedUser ? JSON.parse(savedUser) : null;
     });
+
+    // ── Check token on mount to persist Auth State ──────────────
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (token && !user) {
+            const decoded = parseJwt(token);
+            if (decoded && decoded.sub) {
+                setUser({
+                    id: decoded.sub,
+                    name: decoded.sub,
+                    role: decoded.role ? decoded.role.toLowerCase() : 'patient'
+                });
+            }
+        }
+    }, [user]);
 
     // Persistent Patients State
     const [patients, setPatients] = useState(() => {
