@@ -32,7 +32,11 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(request -> {
                     var config = new CorsConfiguration();
                     // ✅ ALLOW ORIGINS FOR HACKATHON DEMO
-                    config.setAllowedOrigins(List.of("http://localhost:5173", "https://delhi-final-dv3b.vercel.app"));
+                    config.setAllowedOrigins(List.of(
+                            "http://localhost:5173", 
+                            "https://delhi-final-dv3b.vercel.app",
+                            "https://delhi-final.vercel.app" // Idhoda serthu allow panniyachu
+                    ));
                     config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
                     config.setAllowedHeaders(List.of("*"));
                     config.setAllowCredentials(true);
