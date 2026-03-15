@@ -23,5 +23,6 @@ public class Doctor {
     private String specialization;
 
     @OneToMany(mappedBy = "doctor", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @com.fasterxml.jackson.annotation.JsonIgnore
     private List<Patient> patients;
 }
