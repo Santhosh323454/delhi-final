@@ -7,6 +7,7 @@ const BASE_URL = isDevelopment
 
 const api = axios.create({
     baseURL: BASE_URL,
+    withCredentials: true,
 });
 
 api.interceptors.request.use(
