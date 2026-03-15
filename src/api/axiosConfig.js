@@ -1,8 +1,12 @@
 import axios from 'axios';
 
+const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const BASE_URL = isDevelopment 
+    ? 'http://localhost:10000/api' 
+    : 'https://delhi-final.onrender.com/api';
+
 const api = axios.create({
-    // 🚩 Localhost-la run panna ippo idhu dhaan mukkiyam
-    baseURL: 'http://localhost:8080/api',
+    baseURL: BASE_URL,
 });
 
 api.interceptors.request.use(
