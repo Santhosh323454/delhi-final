@@ -1,9 +1,8 @@
 import axios from 'axios';
 
-const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-const BASE_URL = isDevelopment 
-    ? 'http://localhost:10000/api' 
-    : 'https://delhi-final.onrender.com/api';
+// ✅ HACKATHON RULE: Entha laptop-la irundhum data vara, Render Cloud URL-ah direct-ah kudukanum.
+// Localhost condition-ah remove panniyachu to avoid connection issues on other PCs.
+const BASE_URL = 'https://delhi-final.onrender.com/api';
 
 const api = axios.create({
     baseURL: BASE_URL,
@@ -19,10 +18,8 @@ api.interceptors.request.use(
             config.headers['Authorization'] = `Bearer ${token}`;
         }
 
-        // ✅ Localhost-la irukkumbodhu idhu thavai illai, aana irundhalum thappu illa
+        // ✅ Cloud deployment safety headers
         config.headers['ngrok-skip-browser-warning'] = 'true';
-
-        // ✅ Content-Type setting
         config.headers['Content-Type'] = 'application/json';
 
         return config;
