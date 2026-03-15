@@ -66,6 +66,7 @@ public class AdminService {
         return doctorRepository.save(doctor);
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<Doctor> getAllDoctors() {
         return doctorRepository.findAll();
     }
