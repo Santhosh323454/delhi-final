@@ -4,8 +4,8 @@ WORKDIR /app
 COPY . .
 RUN mvn clean package -DskipTests
 
-# Step 2: Run the app using Java
-FROM openjdk:17-jdk-slim
+# Step 2: Run the app using a stable Java image
+FROM eclipse-temurin:17-jre-jammy
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 10000
