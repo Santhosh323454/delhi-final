@@ -15,4 +15,7 @@ public interface DoctorRepository extends JpaRepository<Doctor, Long> {
 
     @Query("SELECT DISTINCT d.specialization FROM Doctor d WHERE d.specialization IS NOT NULL AND d.specialization != ''")
     List<String> findDistinctSpecializations();
+
+    @Query("SELECT d FROM Doctor d JOIN FETCH d.user")
+    List<Doctor> findAllWithUser();
 }

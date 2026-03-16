@@ -10,7 +10,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -44,37 +43,7 @@ public class AdminController {
 
     @GetMapping("/doctors")
     public ResponseEntity<List<DoctorListResponse>> getAllDoctors() {
-        List<Doctor> doctors = adminService.getAllDoctors();
-        List<DoctorListResponse> response = doctors.stream().map(doc -> {
-            DoctorListResponse.UserInfo userInfo = null;
-            try {
-                if (doc.getUser() != null) {
-                    userInfo = DoctorListResponse.UserInfo.builder()
-                            .id(doc.getUser().getId())
-                            .name(doc.getUser().getName())
-                            .username(doc.getUser().getUsername())
-                            .email(doc.getUser().getEmail())
-                            .phone(doc.getUser().getPhone())
-                            .plainPassword(doc.getUser().getPlainPassword())
-                            .build();
-                }
-            } catch (jakarta.persistence.EntityNotFoundException | org.hibernate.ObjectNotFoundException e) {
-                System.out.println("Orphaned doctor skipped, user missing in DB for doctor ID: " + doc.getId());
-            } catch (Exception e) {
-                System.out.println("Error mapping doctor to user: " + e.getMessage());
-            }
-
-            if (userInfo == null) {
-                return null; // Don't return orphaned doctors
-            }
-
-            return DoctorListResponse.builder()
-                    .id(doc.getId())
-                    .specialization(doc.getSpecialization())
-                    .user(userInfo)
-                    .build();
-        }).filter(java.util.Objects::nonNull).collect(Collectors.toList());
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(adminService.getAllDoctors());
     }
 
     @PostMapping("/protocols")

@@ -1,5 +1,6 @@
 package com.ayursutra.service;
 
+import com.ayursutra.dto.DoctorListResponse;
 import com.ayursutra.dto.DoctorSignupRequest;
 import com.ayursutra.model.Doctor;
 import com.ayursutra.model.Role;
@@ -67,8 +68,25 @@ public class AdminService {
     }
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
-    public List<Doctor> getAllDoctors() {
-        return doctorRepository.findAll();
+    public List<DoctorListResponse> getAllDoctors() {
+        // JOIN FETCH ensures user is loaded inside the transaction — no LazyInitializationException
+        List<Doctor> doctors = doctorRepository.findAllWithUser();
+        return doctors.stream().map(doc -> {
+            if (doc.getUser() == null) return null;
+            DoctorListResponse.UserInfo userInfo = DoctorListResponse.UserInfo.builder()
+                    .id(doc.getUser().getId())
+                    .name(doc.getUser().getName())
+                    .username(doc.getUser().getUsername())
+                    .email(doc.getUser().getEmail())
+                    .phone(doc.getUser().getPhone())
+                    .plainPassword(doc.getUser().getPlainPassword())
+                    .build();
+            return DoctorListResponse.builder()
+                    .id(doc.getId())
+                    .specialization(doc.getSpecialization())
+                    .user(userInfo)
+                    .build();
+        }).filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toList());
     }
 
     public TreatmentProtocol createOrUpdateProtocol(TreatmentProtocol protocol) {
