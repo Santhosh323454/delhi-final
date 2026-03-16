@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ShieldAlert, UserPlus, Database, Activity, CheckCircle, ShieldCheck, Bell } from 'lucide-react';
+import { ShieldAlert, UserPlus, Database, Activity, CheckCircle, ShieldCheck, Bell, RefreshCw, AlertTriangle, Loader } from 'lucide-react';
 import { useTherapy } from '../../context/TherapyContext';
 import api from '../../api/axiosConfig';
 
@@ -11,6 +11,8 @@ const AdminDashboard = () => {
     const [availableTreatments, setAvailableTreatments] = useState([]);
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState('');
+    const [doctorsLoading, setDoctorsLoading] = useState(true);
+    const [fetchError, setFetchError] = useState('');
     const [selectedDoctor, setSelectedDoctor] = useState(null);
     const [formData, setFormData] = useState({
         name: '',
@@ -38,11 +40,18 @@ const AdminDashboard = () => {
     };
 
     const fetchDoctors = async () => {
+        setDoctorsLoading(true);
+        setFetchError('');
         try {
             const res = await api.get('/admin/doctors');
-            setDoctors(res.data);
+            setDoctors(res.data || []);
         } catch (error) {
             console.error("Failed to fetch doctors", error);
+            const msg = error.response?.data?.message || error.message || 'Failed to load doctors';
+            setFetchError(msg);
+            toast.error('Could not load doctors list');
+        } finally {
+            setDoctorsLoading(false);
         }
     };
 
@@ -205,13 +214,40 @@ const AdminDashboard = () => {
                     <div className="bg-white/70 backdrop-blur-md p-8 rounded-[3rem] shadow-xl border border-ayur-gold/20 h-full">
                         <div className="flex items-center justify-between mb-8">
                             <h2 className="text-2xl font-serif font-bold text-ayur-green">Active Practitioners</h2>
-                            <div className="bg-ayur-cream/50 text-ayur-green px-4 py-2 rounded-full font-bold text-xs uppercase tracking-widest">
-                                {doctors.length} Registered
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={fetchDoctors}
+                                    disabled={doctorsLoading}
+                                    className="p-2 bg-ayur-cream/50 text-ayur-green rounded-full hover:bg-ayur-cream transition-all disabled:opacity-40"
+                                    title="Refresh doctors list"
+                                >
+                                    <RefreshCw size={15} className={doctorsLoading ? 'animate-spin' : ''} />
+                                </button>
+                                <div className="bg-ayur-cream/50 text-ayur-green px-4 py-2 rounded-full font-bold text-xs uppercase tracking-widest">
+                                    {doctors.length} Registered
+                                </div>
                             </div>
                         </div>
 
                         <div className="space-y-4">
-                            {doctors.length === 0 ? (
+                            {doctorsLoading ? (
+                                <div className="text-center py-20 text-ayur-green/40">
+                                    <Loader size={40} className="mx-auto mb-4 animate-spin" />
+                                    <p className="font-bold uppercase tracking-widest text-xs">Loading Practitioners...</p>
+                                </div>
+                            ) : fetchError ? (
+                                <div className="text-center py-16 text-red-400">
+                                    <AlertTriangle size={40} className="mx-auto mb-4 opacity-60" />
+                                    <p className="font-bold text-sm mb-1">Failed to load doctors</p>
+                                    <p className="text-xs opacity-60 mb-4">{fetchError}</p>
+                                    <button
+                                        onClick={fetchDoctors}
+                                        className="bg-red-50 text-red-500 border border-red-200 px-5 py-2 rounded-xl text-xs font-bold hover:bg-red-100 transition-all"
+                                    >
+                                        Retry
+                                    </button>
+                                </div>
+                            ) : doctors.length === 0 ? (
                                 <div className="text-center py-20 text-ayur-charcoal/30">
                                     <Activity size={48} className="mx-auto mb-4 opacity-20" />
                                     <p className="font-bold uppercase tracking-widest text-sm">No Doctors Registered Yet</p>
