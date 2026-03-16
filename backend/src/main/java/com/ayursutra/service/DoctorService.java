@@ -35,14 +35,10 @@ public class DoctorService {
         Doctor doctor = doctorRepository.findByUserId(doctorUser.getId())
                 .orElseThrow(() -> new RuntimeException("No Doctor profile found for this account. Please contact the admin."));
 
-        // Check for existing email or phone to give a clear error
+        // Only check for duplicate email (phone can be shared between family members)
         if (request.getEmail() != null && !request.getEmail().isEmpty() &&
                 userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("A patient with this email address already exists.");
-        }
-        if (request.getPhone() != null && !request.getPhone().isEmpty() &&
-                userRepository.existsByPhone(request.getPhone())) {
-            throw new RuntimeException("A patient with this phone number already exists.");
         }
 
         // Generate ID: AS-2026-XXX
