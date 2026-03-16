@@ -42,6 +42,9 @@ public class AIVoiceService {
 
     @Value("${twilio.phone.number}")
     private String twilioPhoneNumber;
+    
+    @Value("${backend.url:}")
+    private String backendUrl;
     // ──────────────────────────────────────────────────────────────────────────
 
     @Autowired
@@ -82,6 +85,7 @@ public class AIVoiceService {
      */
     @Scheduled(cron = "0 0 18 * * *")
     public void firstReminderCall() {
+        System.out.println("[AIVoiceService] Call trigger initiated at 6 PM");
         LocalDate tomorrow = LocalDate.now().plusDays(1);
         System.out.println("[AIVoiceService] 6:00 PM — Checking for patients with checkup on " + tomorrow);
 
@@ -99,8 +103,8 @@ public class AIVoiceService {
             String therapy = patient.getCurrentTherapy() != null ? patient.getCurrentTherapy() : "Ayurvedic";
 
             boolean success = makeVoiceCall(phone, name, therapy);
+            // We no longer set status to ANSWERED here. We rely on the Twilio webhook!
             if (success) {
-                patient.setCallStatus(CallStatus.ANSWERED);
                 // Advance nextCheckupDate by intervalDays, but never past endDate
                 if (patient.getIntervalDays() != null && patient.getEndDate() != null) {
                     LocalDate next = patient.getNextCheckupDate().plusDays(patient.getIntervalDays());
@@ -138,10 +142,7 @@ public class AIVoiceService {
             String therapy = patient.getCurrentTherapy() != null ? patient.getCurrentTherapy() : "Ayurvedic";
 
             boolean success = makeVoiceCall(phone, name, therapy);
-            if (success) {
-                patient.setCallStatus(CallStatus.ANSWERED);
-                patientRepository.save(patient);
-            }
+            // Twilio webhook will handle setting the status to ANSWERED
         }
         System.out.println("[AIVoiceService] 6:30 PM — Retry-call round complete. "
                 + pendingPatients.size() + " patient(s) attempted.");
@@ -166,38 +167,32 @@ public class AIVoiceService {
             String therapy = patient.getCurrentTherapy() != null ? patient.getCurrentTherapy() : "Ayurvedic";
 
             boolean success = makeVoiceCall(phone, name, therapy);
-            if (success) {
-                patient.setCallStatus(CallStatus.ANSWERED);
-                patientRepository.save(patient);
-            }
-            // Patients that still don't answer will be SMS-ed at 8:30 PM.
+            // Twilio webhook will handle setting the status to ANSWERED
+            // Patients that still don't answer will be SMS-ed at 8:05 PM.
         }
         System.out.println("[AIVoiceService] 8:00 PM — Final-call round complete. "
                 + pendingPatients.size() + " patient(s) attempted.");
     }
 
     /**
-     * 8:30 PM — Send SMS to any patient whose call status is still PENDING
+     * 8:05 PM — Send SMS to any patient whose call status is still PENDING
      * after all three voice call attempts. Marks them as MISSED.
-     *
-     * Tamil SMS text:
-     * "Vanakkam, ungalukku nalaikku treatment irukkira dhu. Sariyaana nerathirku
-     * varaavum."
      */
-    @Scheduled(cron = "0 30 20 * * *")
+    @Scheduled(cron = "0 5 20 * * *")
     public void sendFallbackSms() {
-        System.out.println("[AIVoiceService] 8:30 PM — Sending SMS to still-PENDING patients...");
+        System.out.println("[AIVoiceService] 8:05 PM — Sending SMS to still-PENDING patients...");
         List<Patient> pendingPatients = patientRepository.findAll()
                 .stream()
                 .filter(p -> "ACTIVE".equalsIgnoreCase(p.getStatus())
                         && p.getCallStatus() == CallStatus.PENDING)
                 .toList();
 
-        String smsBody = "Vanakkam, ungalukku nalaikku treatment irukkira dhu. "
-                + "Sariyaana nerathirku varaavum.";
-
         for (Patient patient : pendingPatients) {
             String phone = patient.getUser().getPhone();
+            String name = patient.getUser().getName();
+            String smsBody = String.format(
+                    "Hello %s, we couldn't reach you via call. Reminder: You have a treatment scheduled for tomorrow. Please confirm.",
+                    name);
             sendSms(phone, smsBody);
             patient.setCallStatus(CallStatus.MISSED);
             patientRepository.save(patient);
@@ -240,10 +235,17 @@ public class AIVoiceService {
             String twimlUrl = "http://twimlets.com/echo?Twiml="
                     + URLEncoder.encode(twiml, StandardCharsets.UTF_8);
 
-            Call call = Call.creator(
+            com.twilio.rest.api.v2010.account.CallCreator creator = Call.creator(
                     new PhoneNumber(formattedPhone),
                     new PhoneNumber(twilioPhoneNumber),
-                    URI.create(twimlUrl)).create();
+                    URI.create(twimlUrl));
+
+            if (backendUrl != null && !backendUrl.isBlank()) {
+                creator.setStatusCallback(URI.create(backendUrl + "/api/twilio/call-status"))
+                       .setStatusCallbackMethod(com.twilio.http.HttpMethod.POST);
+            }
+
+            Call call = creator.create();
 
             System.out.println("[AIVoiceService] Call initiated to " + formattedPhone
                     + " | SID: " + call.getSid());
