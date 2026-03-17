@@ -6,7 +6,7 @@ const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://delhi-final.onren
 
 const api = axios.create({
     baseURL: BASE_URL,
-    withCredentials: true,
+    // withCredentials removed: JWT Bearer token auth does NOT need cookies
 });
 
 api.interceptors.request.use(
