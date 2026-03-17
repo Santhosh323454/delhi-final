@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/treatments")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
+// CORS is handled globally in SecurityConfig.java
 public class TreatmentController {
 
     private final TreatmentRecordRepository treatmentRecordRepository;

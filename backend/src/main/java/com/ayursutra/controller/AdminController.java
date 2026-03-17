@@ -14,7 +14,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admin")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
+// CORS is handled globally in SecurityConfig.java
 public class AdminController {
 
     private final AdminService adminService;

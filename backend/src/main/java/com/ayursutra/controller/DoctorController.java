@@ -30,7 +30,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/doctor")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
+// CORS is handled globally in SecurityConfig.java
 public class DoctorController {
 
     private final DoctorService doctorService;

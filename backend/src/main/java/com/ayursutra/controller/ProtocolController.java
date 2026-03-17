@@ -10,7 +10,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/protocols")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
+// CORS is handled globally in SecurityConfig.java
 public class ProtocolController {
 
     private final AdminService adminService;

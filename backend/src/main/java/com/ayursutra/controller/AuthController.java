@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*") // <--- INTHA LINE-AH KANDIPPA ADD PANNUNGA!
+// CORS is handled globally in SecurityConfig.java
 public class AuthController {
 
     private final AuthService authService;
