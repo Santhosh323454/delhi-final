@@ -49,6 +49,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/protocols/**").permitAll()
                         .requestMatchers("/api/chat/**").permitAll()
                         .requestMatchers("/api/patient/**").permitAll()
+                        .requestMatchers("/api/twilio/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTherapy } from '../../context/TherapyContext';
-import { MoreVertical, ExternalLink, Trash2, X, AlertCircle, Phone, Edit, Loader, CalendarDays } from 'lucide-react';
+import { MoreVertical, ExternalLink, Trash2, X, AlertCircle, Phone, Edit, Loader, CalendarDays, FileText, Bot } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import EditPatientModal from './EditPatientModal';
 import TreatmentPlanner from './TreatmentPlanner';
@@ -17,9 +17,11 @@ const PatientTable = () => {
     const [patientToDelete, setPatientToDelete] = useState(null);
     const [patientToEdit, setPatientToEdit] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [callingPatientId, setCallingPatientId] = useState(null); // tracks which patient's call is in flight
-    const [planningPatient, setPlanningPatient]   = useState(null); // patient whose plan modal is open
-    const [treatmentModalPatient, setTreatmentModalPatient] = useState(null); // patient for adding treatment notes
+    const [callingPatientId, setCallingPatientId] = useState(null);       // AI health interview call
+    const [reminderCallingId, setReminderCallingId] = useState(null);     // treatment reminder call
+    const [planningPatient, setPlanningPatient]   = useState(null);
+    const [treatmentModalPatient, setTreatmentModalPatient] = useState(null);
+    const [downloadingReportId, setDownloadingReportId] = useState(null);
 
     // 🛠️ Fetch Patients from Backend
     useEffect(() => {
@@ -77,26 +79,78 @@ const PatientTable = () => {
         }
     };
 
-    // 🛠️ Trigger AI Reminder Call — with per-patient loading state
+    // 🤖 Trigger AI Health Interview Call (asks patient health questions)
     const handleTriggerCall = async (patient, e) => {
         e.stopPropagation();
-        if (callingPatientId === patient.id) return; // prevent double-click
-
+        if (callingPatientId === patient.id) return;
         setCallingPatientId(patient.id);
         const { default: toast } = await import('react-hot-toast');
         const patientName = patient.user?.name || patient.name || 'Patient';
-
-        toast.loading(`Dialing ${patientName}...`, { id: `call_${patient.id}` });
+        toast.loading(`🤖 Connecting AI Interview to ${patientName}...`, { id: `call_${patient.id}` });
         try {
             const { default: api } = await import('../../api/axiosConfig');
             await api.post(`/doctor/trigger-call/${patient.id}`);
-            toast.success(`📞 Call Dialed!`, { id: `call_${patient.id}`, duration: 4000 });
+            toast.success(`🤖 AI Health Interview Call Dialed!`, { id: `call_${patient.id}`, duration: 4000 });
         } catch (error) {
-            console.error('Failed to trigger call:', error);
-            const msg = error.response?.data?.error || 'Failed to trigger call. Check Twilio settings.';
+            console.error('Failed to trigger AI call:', error);
+            const msg = error.response?.data?.error || 'Failed to trigger AI call. Check Twilio settings.';
             toast.error(msg, { id: `call_${patient.id}` });
         } finally {
             setCallingPatientId(null);
+        }
+    };
+
+    // 📞 Trigger Treatment Reminder Call (simple reminder message only)
+    const handleTriggerReminder = async (patient, e) => {
+        e.stopPropagation();
+        if (reminderCallingId === patient.id) return;
+        setReminderCallingId(patient.id);
+        const { default: toast } = await import('react-hot-toast');
+        const patientName = patient.user?.name || patient.name || 'Patient';
+        toast.loading(`📞 Sending Reminder to ${patientName}...`, { id: `reminder_${patient.id}` });
+        try {
+            const { default: api } = await import('../../api/axiosConfig');
+            await api.post(`/doctor/trigger-reminder/${patient.id}`);
+            toast.success(`📞 Reminder Call Sent!`, { id: `reminder_${patient.id}`, duration: 4000 });
+        } catch (error) {
+            console.error('Failed to trigger reminder:', error);
+            const msg = error.response?.data?.error || 'Failed to trigger reminder call.';
+            toast.error(msg, { id: `reminder_${patient.id}` });
+        } finally {
+            setReminderCallingId(null);
+        }
+    };
+
+    // 📄 Download AI Health Report PDF
+    const handleDownloadReport = async (patient, e) => {
+        e.stopPropagation();
+        if (downloadingReportId === patient.id) return;
+        setDownloadingReportId(patient.id);
+        const { default: toast } = await import('react-hot-toast');
+        const patientName = patient.user?.name || patient.name || 'Patient';
+        toast.loading(`Generating PDF for ${patientName}...`, { id: `pdf_${patient.id}` });
+        try {
+            const { default: api } = await import('../../api/axiosConfig');
+            const response = await api.get(`/doctor/patients/${patient.id}/health-report/pdf`, {
+                responseType: 'blob',
+            });
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', `HealthReport_${patientName.replace(/\s+/g, '_')}.pdf`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            window.URL.revokeObjectURL(url);
+            toast.success(`📄 Health Report Downloaded!`, { id: `pdf_${patient.id}`, duration: 4000 });
+        } catch (error) {
+            console.error('Failed to download report:', error);
+            const msg = error.response?.status === 404
+                ? 'No health report yet. Make an AI call first!'
+                : (error.response?.data?.error || 'Failed to download report.');
+            toast.error(msg, { id: `pdf_${patient.id}` });
+        } finally {
+            setDownloadingReportId(null);
         }
     };
 
@@ -179,21 +233,58 @@ const PatientTable = () => {
                                         </td>
                                         <td className="px-6 py-4 text-right relative">
                                             <div className={`flex items-center justify-end gap-2 transition-opacity ${openDropdownId === patient?.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                                                {/* 📞 Treatment Reminder Call */}
+                                                <button
+                                                    onClick={(e) => handleTriggerReminder(patient, e)}
+                                                    disabled={reminderCallingId === patient.id}
+                                                    className={`p-2 rounded-lg border relative group transition-colors ${
+                                                        reminderCallingId === patient.id
+                                                            ? 'bg-orange-50 text-ayur-gold border-ayur-gold/20 cursor-not-allowed opacity-70'
+                                                            : 'hover:bg-orange-50 text-ayur-gold border-transparent hover:border-ayur-gold/20'
+                                                    }`}
+                                                    title="Treatment Reminder Call"
+                                                >
+                                                    {reminderCallingId === patient.id
+                                                        ? <Loader size={16} className="animate-spin" />
+                                                        : <Phone size={16} />}
+                                                    <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap">
+                                                        {reminderCallingId === patient.id ? 'Calling...' : 'Reminder Call'}
+                                                    </span>
+                                                </button>
+                                                {/* 🤖 AI Health Interview Call */}
                                                 <button
                                                     onClick={(e) => handleTriggerCall(patient, e)}
                                                     disabled={callingPatientId === patient.id}
                                                     className={`p-2 rounded-lg border relative group transition-colors ${
                                                         callingPatientId === patient.id
-                                                            ? 'bg-orange-50 text-ayur-gold border-ayur-gold/20 cursor-not-allowed opacity-70'
-                                                            : 'hover:bg-orange-50 text-ayur-gold border-transparent hover:border-ayur-gold/20'
+                                                            ? 'bg-purple-50 text-purple-500 border-purple-200 cursor-not-allowed opacity-70'
+                                                            : 'hover:bg-purple-50 text-purple-500 border-transparent hover:border-purple-200'
                                                     }`}
-                                                    title="Trigger AI Voice Reminder"
+                                                    title="AI Health Interview Call"
                                                 >
                                                     {callingPatientId === patient.id
                                                         ? <Loader size={16} className="animate-spin" />
-                                                        : <Phone size={16} />}
+                                                        : <Bot size={16} />}
                                                     <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap">
-                                                        {callingPatientId === patient.id ? 'Dialing...' : 'AI Call'}
+                                                        {callingPatientId === patient.id ? 'Interviewing...' : 'AI Interview'}
+                                                    </span>
+                                                </button>
+                                                {/* 📄 Download Health Report PDF */}
+                                                <button
+                                                    onClick={(e) => handleDownloadReport(patient, e)}
+                                                    disabled={downloadingReportId === patient.id}
+                                                    className={`p-2 rounded-lg border relative group transition-colors ${
+                                                        downloadingReportId === patient.id
+                                                            ? 'bg-green-50 text-green-500 border-green-200 cursor-not-allowed opacity-70'
+                                                            : 'hover:bg-green-50 text-green-500 border-transparent hover:border-green-200'
+                                                    }`}
+                                                    title="Download Health Report PDF"
+                                                >
+                                                    {downloadingReportId === patient.id
+                                                        ? <Loader size={16} className="animate-spin" />
+                                                        : <FileText size={16} />}
+                                                    <span className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 whitespace-nowrap">
+                                                        {downloadingReportId === patient.id ? 'Generating...' : 'Health Report PDF'}
                                                     </span>
                                                 </button>
                                                 <button

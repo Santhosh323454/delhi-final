@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, User, Calendar, Activity, ClipboardList, Clock, Edit2, X, Save, RefreshCw } from 'lucide-react';
+import { ArrowLeft, User, Calendar, Activity, ClipboardList, Clock, Edit2, X, Save, RefreshCw, FileText } from 'lucide-react';
 import { useTherapy } from '../../context/TherapyContext';
 
 const PatientDetailView = () => {
@@ -134,6 +134,33 @@ const PatientDetailView = () => {
         }
     };
 
+    const handleDownloadReport = async () => {
+        try {
+            const { default: api } = await import('../../api/axiosConfig');
+            const { default: toast } = await import('react-hot-toast');
+            toast.loading("Generating PDF...", { id: `pdf_${patient.id}` });
+            
+            const response = await api.get(`/doctor/patients/${patient.id}/health-report/pdf`, {
+                responseType: 'blob'
+            });
+            
+            const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+            const link = document.createElement('a');
+            link.href = url;
+            const filename = `HealthReport_${(patient.name || patient.user?.name || 'Patient').replace(/\s+/g, '_')}.pdf`;
+            link.setAttribute('download', filename);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode.removeChild(link);
+            
+            toast.success("PDF Downloaded!", { id: `pdf_${patient.id}` });
+        } catch (error) {
+            console.error("Failed to download PDF:", error);
+            const { default: toast } = await import('react-hot-toast');
+            toast.error("Failed to download report. Ensure a call was completed.", { id: `pdf_${patient.id}` });
+        }
+    };
+
     return (
         <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -164,6 +191,13 @@ const PatientDetailView = () => {
                         }`}>
                         {patient.status}
                     </span>
+                    <button
+                        onClick={handleDownloadReport}
+                        className="px-4 py-2 bg-blue-50 text-blue-600 border border-blue-100 rounded-xl text-xs font-bold hover:bg-blue-600 hover:text-white transition-colors flex items-center gap-2"
+                        title="Download latest AI Health Report"
+                    >
+                        <FileText size={16} /> Health Report PDF
+                    </button>
                     <button
                         onClick={() => setIsDeleting(true)}
                         className="px-4 py-2 bg-red-50 text-red-500 border border-red-100 rounded-xl text-xs font-bold hover:bg-red-500 hover:text-white transition-colors"

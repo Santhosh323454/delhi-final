@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-// ✅ HACKATHON RULE: Entha laptop-la irundhum data vara, Render Cloud URL-ah direct-ah kudukanum.
-// Localhost condition-ah remove panniyachu to avoid connection issues on other PCs.
-const BASE_URL = 'https://delhi-final.onrender.com/api';
+// ✅ DEV MODE: Using local backend for testing with Twilio & Ngrok.
+// Switch to 'https://delhi-final.onrender.com/api' before deploying to production.
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:10000/api';
 
 const api = axios.create({
     baseURL: BASE_URL,

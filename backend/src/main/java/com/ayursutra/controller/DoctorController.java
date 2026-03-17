@@ -6,13 +6,24 @@ import com.ayursutra.model.Patient;
 import com.ayursutra.repository.PatientRepository;
 import com.ayursutra.service.AIVoiceService;
 import com.ayursutra.service.DoctorService;
+import com.ayursutra.model.HealthReport;
+import com.ayursutra.repository.HealthReportRepository;
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.layout.Document;
+import com.itextpdf.layout.element.Paragraph;
+import com.itextpdf.layout.properties.TextAlignment;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.ByteArrayOutputStream;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
@@ -25,6 +36,7 @@ public class DoctorController {
     private final DoctorService doctorService;
     private final PatientRepository patientRepository;
     private final AIVoiceService aiVoiceService;
+    private final HealthReportRepository healthReportRepository;
 
     @GetMapping("/specializations")
     public ResponseEntity<List<String>> getSpecializations() {
@@ -66,12 +78,32 @@ public class DoctorController {
             String name = patient.getUser() != null ? patient.getUser().getName() : "Patient";
             String therapy = patient.getCurrentTherapy() != null ? patient.getCurrentTherapy() : "Consultation";
 
-            System.out.println("[TriggerCall] Attempting call to patient: " + name + " | Phone: " + phone + " | Therapy: " + therapy);
+            System.out.println("[TriggerCall] AI Health Interview call to: " + name + " | Phone: " + phone);
 
             aiVoiceService.makeVoiceCall(phone, name, therapy);
-            return ResponseEntity.ok(Map.of("message", "AI Call Triggered Successfully!"));
+            return ResponseEntity.ok(Map.of("message", "AI Health Interview Call Triggered Successfully!"));
         } catch (Exception e) {
             System.err.println("[TriggerCall] Error: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/trigger-reminder/{patientId}")
+    public ResponseEntity<?> triggerReminder(@PathVariable Long patientId) {
+        try {
+            Patient patient = patientRepository.findById(patientId)
+                    .orElseThrow(() -> new RuntimeException("Patient not found"));
+
+            String phone = patient.getUser() != null ? patient.getUser().getPhone() : null;
+            String name = patient.getUser() != null ? patient.getUser().getName() : "Patient";
+            String therapy = patient.getCurrentTherapy() != null ? patient.getCurrentTherapy() : "Ayurvedic";
+
+            System.out.println("[TriggerReminder] Treatment reminder call to: " + name + " | Phone: " + phone);
+
+            aiVoiceService.makeReminderCall(phone, name, therapy);
+            return ResponseEntity.ok(Map.of("message", "Treatment Reminder Call Triggered!"));
+        } catch (Exception e) {
+            System.err.println("[TriggerReminder] Error: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", e.getMessage()));
         }
     }
@@ -164,6 +196,62 @@ public class DoctorController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", "Failed to save plan: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/patients/{patientId}/health-report/pdf")
+    public ResponseEntity<byte[]> downloadHealthReportPdf(@PathVariable Long patientId) {
+        try {
+            Patient patient = patientRepository.findById(patientId)
+                    .orElseThrow(() -> new RuntimeException("Patient not found"));
+
+            HealthReport report = healthReportRepository.findTopByPatientIdOrderByReportDateDesc(patientId)
+                    .orElseThrow(() -> new RuntimeException("No health report found for this patient. Please ensure a call has been completed."));
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            PdfWriter writer = new PdfWriter(baos);
+            PdfDocument pdf = new PdfDocument(writer);
+            Document document = new Document(pdf);
+
+            // Add Header
+            document.add(new Paragraph("AyurSutra Health Report")
+                    .setBold().setFontSize(20).setTextAlignment(TextAlignment.CENTER));
+            
+            document.add(new Paragraph(" "));
+
+            // Add Patient Details
+            document.add(new Paragraph("Patient Name: " + report.getPatientName()).setBold());
+            document.add(new Paragraph("Report Date: " + report.getReportDate().format(DateTimeFormatter.ofPattern("dd MMM yyyy"))));
+            document.add(new Paragraph("Therapy: " + (report.getTherapyName() != null ? report.getTherapyName() : "N/A")));
+
+            document.add(new Paragraph(" "));
+
+            // Add Transcript
+            document.add(new Paragraph("Patient's Spoken Update:").setBold().setFontSize(14));
+            document.add(new Paragraph(report.getTranscription()));
+
+            document.add(new Paragraph(" "));
+
+            // Add AI Summary
+            document.add(new Paragraph("AI Health Summary:").setBold().setFontSize(14));
+            document.add(new Paragraph(report.getAiSummary()));
+
+            document.close();
+
+            byte[] pdfBytes = baos.toByteArray();
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            String filename = "HealthReport_" + patient.getUser().getName().replaceAll("\\s+", "_") + ".pdf";
+            headers.setContentDispositionFormData("filename", filename);
+            headers.setCacheControl("must-revalidate, post-check=0, pre-check=0");
+
+            return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+
+        } catch (Exception e) {
+            System.err.println("[HealthReportPDF] Error: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(null);
         }
     }
 }
